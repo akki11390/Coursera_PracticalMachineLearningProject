@@ -1,0 +1,85 @@
+---
+title: "Solution to Weight Lifting Problem"
+author: "Akash Gupta"
+date: "July 9, 2016"
+output: html_document
+---
+
+
+### first of all we load necessary files namely training and testing , which were ###provided to us.
+
+
+```{r}
+training = read.csv("pml-training.csv", stringsAsFactors = F)
+testing = read.csv("pml-testing.csv", stringsAsFactors = F)
+```
+
+### Now we have to clean the data as many of the variables have a lot of missing ###values.
+### First we will remove any variable which has more than 60% of data missing and ###then we will remove all non numeric variables.
+### However we will retain variable "classe" since we have to predict it.
+
+```{r}
+library(caret)
+library(randomForest)
+counter = 0
+newData = data.frame(matrix(nrow=length(training[,1]), ncol=7))
+for(i in 1:length(training)){
+  y = sum(is.na(training[,i]))
+  n = y/(length(training[,1]))
+  if(n < .6){
+    counter = counter + 1
+    newData[,counter] = training[,i]
+    colnames(newData)[counter] = colnames(training)[i]
+  }
+}
+numbers = sapply(newData, is.numeric)
+new1 = cbind(newData[,numbers], classe = newData$classe)
+new1 = new1[,5:length(new1)] 
+```
+
+### Since we will test our final model on testing dataset and we will not want to ###touch it before we come up with our final model,
+### we will split our current dataset which is new1 in two parts, Train and Test ###with 60% of data in train and rest in Test. 
+
+```{r}
+set.seed(1000)
+inTrain = createDataPartition(y=new1$classe, p=0.6, list=FALSE)
+Train = new1[inTrain,] 
+Test = new1[-inTrain,]
+```
+
+### Now since we have got our final training set (Train) we will fit our model on ###it & will use random forest as classification method.
+### We are choosing random forest as it gave highest accuracy among other models.
+### We will use train control method cv with 4 partition and will allow parallel ###processing for fast results.
+
+```{r}
+set.seed(1000)
+modelRF = randomForest(classe~., data = Train, trControl = trainControl(method = "cv", number = 4, allowParallel = TRUE))
+```
+
+### Now we classify this model on Test set.
+```{r}
+prediction = predict(modelRF, Test)
+confusionMatrix(Test$classe, prediction)
+```
+
+### But since we have to finally predict on the testing file , we do it here.
+### But to predict here on testing we have to process it as training file
+
+```{r}
+Needed = colnames(Train)
+Needed[53] = "problem_id"
+testFinal = testing[, Needed]
+predictionTest = predict(modelRF, testFinal)
+```
+
+### We will also want to print the prediction vector for testing file.
+
+```{r}
+print(as.vector(predictionTest))
+```
+
+
+
+
+
+
